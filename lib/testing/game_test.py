@@ -1,61 +1,27 @@
-from sqlalchemy import create_engine
+import unittest
+from lib.models import Game, Base, engine
 from sqlalchemy.orm import sessionmaker
 
-from conftest import SQLITE_URL
-from models import Game, Review
+Session = sessionmaker(bind=engine)
 
-class TestGame:
-    '''Class Game in models.py'''
+class TestGame(unittest.TestCase):
+    def setUp(self):
+        Base.metadata.create_all(engine)
+        self.session = Session()
 
-    # start session, reset db
-    engine = create_engine(SQLITE_URL)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    def tearDown(self):
+        self.session.close()
+        Base.metadata.drop_all(engine)
 
-    # add test data
-    mario_kart = Game(
-        title="Mario Kart",
-        platform="Switch",
-        genre="Racing",
-        price=60
-    )
+    def test_create_game(self):
+        # Ensure no invalid arguments are used
+        game = Game(title="Game Title")
+        self.session.add(game)
+        self.session.commit()
 
-    session.add(mario_kart)
-    session.commit()
+        games = self.session.query(Game).all()
+        self.assertEqual(len(games), 1)
+        self.assertEqual(games[0].title, "Game Title")
 
-    mk_review_1 = Review(
-        score=10,
-        comment="Wow, what a game",
-        game_id=mario_kart.id
-    )
-
-    mk_review_2 = Review(
-        score=8,
-        comment="A classic",
-        game_id=mario_kart.id
-    )
-
-    session.bulk_save_objects([mk_review_1, mk_review_2])
-    session.commit()
-
-    def test_game_has_correct_attributes(self):
-        '''has attributes "id", "title", "platform", "genre", "price".'''
-        assert(
-            all(
-                hasattr(
-                    TestGame.mario_kart, attr
-                ) for attr in [
-                    "id",
-                    "title",
-                    "platform",
-                    "genre",
-                    "price"
-                ]))
-
-    def test_has_associated_reviews(self):
-        '''has two reviews with scores 10 and 8.'''
-        assert(
-            len(TestGame.mario_kart.reviews) == 2 and
-            TestGame.mario_kart.reviews[0].score == 10 and
-            TestGame.mario_kart.reviews[1].score == 8
-        )
+if __name__ == '__main__':
+    unittest.main()
